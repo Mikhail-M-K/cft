@@ -14,15 +14,19 @@ import java.util.concurrent.Future;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
-public class cft {
+public class Cft {
+
+    static String regex = "\\d+";
+    static Pattern patternInt = Pattern.compile(regex);
+    static Pattern flagPattern = Pattern.compile("-(a|d|s|i)");
+    static Logger logger =Logger.getAnonymousLogger();
+    static ExecutorService pool = Executors.newCachedThreadPool();
 
     public static void main(String[] args) throws ExecutionException, InterruptedException {
 
         while (!checkArgs(args)) {
             args = inputArgs();
         }
-
-        Pattern flagPattern = Pattern.compile("-(a|d|s|i)");
 
         String outputFilename = null;
         List<String> filesToProcess = new LinkedList<>();
@@ -53,9 +57,7 @@ public class cft {
             }
         }
 
-        ExecutorService pool = Executors.newCachedThreadPool();
         Set<String> tempFiles = new HashSet<>();
-
         while (filesToProcess.size() > 1) {
             List<String> newFilesToProcess = new LinkedList<>();
             List<Future<String>> tasks = new ArrayList<>();
@@ -80,7 +82,7 @@ public class cft {
                 tempFiles.remove(filesToProcess.get(filesToProcess.size() - 1));
             }
 
-            Logger.getAnonymousLogger().info("РАЗМЕР НОВОГО ПУЛА ФАЙЛОВ ДЛЯ ОБРАБОТКИ: " + newFilesToProcess.size());
+            logger.info("РАЗМЕР НОВОГО ПУЛА ФАЙЛОВ ДЛЯ ОБРАБОТКИ: " + newFilesToProcess.size());
             filesToProcess = newFilesToProcess;
         }
         pool.shutdown();
@@ -90,7 +92,7 @@ public class cft {
 
     private static String mergeFilesToTemp(String file1, String file2, boolean isAscending, DataType dataType) {
         String tempFileName = "temp_" + UUID.randomUUID() + ".txt";
-        Logger.getAnonymousLogger().info("МЁРЖИМ: " + file1 + " и " + file2 + " в " + tempFileName);
+        logger.info("МЁРЖИМ: " + file1 + " и " + file2 + " в " + tempFileName);
         try(
                 FileReader fileReader1 = new FileReader(file1);
                 FileReader fileReader2 = new FileReader(file2);
@@ -98,32 +100,35 @@ public class cft {
                 BufferedReader br1 = new BufferedReader(fileReader1);
                 BufferedReader br2 = new BufferedReader(fileReader2)
         ) {
-            String line1 = br1.readLine();
-            String line2 = br2.readLine();
+
+
+            String line1 = searchTypeLine(br1,dataType);
+            String line2 = searchTypeLine(br2,dataType);
+
             while (line1 != null || line2 != null) {
                 if (line1 == null) {
                     writer.write(line2 + "\n");
-                    line2 = br2.readLine();
+                    line2 = searchTypeLine(br2,dataType);
                 } else if (line2 == null) {
                     writer.write(line1 + "\n");
-                    line1 = br1.readLine();
+                    line1 = searchTypeLine(br1,dataType);
                 } else {
                     int compare = compareDueToType(line1, line2, dataType);
                     if (isAscending) {
                         if (compare <= 0) {
                             writer.write(line1 + "\n");
-                            line1 = br1.readLine();
+                            line1 = searchTypeLine(br1,dataType);
                         } else {
                             writer.write(line2 + "\n");
-                            line2 = br2.readLine();
-                        }
+                            line2 = searchTypeLine(br2,dataType);
+                                                    }
                     } else {
                         if (compare <= 0) {
                             writer.write(line2 + "\n");
-                            line2 = br2.readLine();
+                            line2 = searchTypeLine(br2,dataType);
                         } else {
                             writer.write(line1 + "\n");
-                            line1 = br1.readLine();
+                            line1 = searchTypeLine(br1,dataType);
                         }
                     }
                 }
@@ -135,6 +140,18 @@ public class cft {
         }
         return tempFileName;
     }
+
+    private static String searchTypeLine (BufferedReader br, DataType dataType) throws IOException {
+        String line = br.readLine();
+        while (line != null && dataType == DataType.INTEGER && !patternInt.matcher(line).matches()) {
+            line = br.readLine();
+        }
+        while (line != null && dataType == DataType.STRING && (line.contains(" ")||line.contains("\t") || line.isEmpty())) {
+            line = br.readLine();
+        }
+        return line;
+    }
+
 
     private static int compareDueToType(String line1, String line2, DataType dataType) {
         if (dataType == DataType.STRING) {
@@ -148,7 +165,7 @@ public class cft {
         File result = new File(s);
         File target = new File(outputFilename);
         boolean success = result.renameTo(target);
-        Logger.getAnonymousLogger().info("СЛИВАЕМ " + s + " в " + outputFilename + " , удачно:  " + success);
+        logger.info("СЛИВАЕМ " + s + " в " + outputFilename + " , удачно:  " + success);
     }
 
     private static boolean checkArgs (String[] args) {
@@ -202,7 +219,8 @@ public class cft {
                 "1. режим сортировки (-a или -d), необязательный, по умолчанию сортируем по возрастанию;\n" +
                 "2. тип данных (-s или -i), обязательный;\n" +
                 "3. имя выходного файла, обязательное;\n" +
-                "4. остальные параметры – имена входных файлов, не менее одного.");
+                "4. остальные параметры – имена входных файлов, не менее одного.\n" +
+                "Пример: -d -s out.txt in1.txt in2.txt in3.txt");
         return scanner.nextLine().split(" ");
     }
 
