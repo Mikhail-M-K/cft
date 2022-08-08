@@ -76,11 +76,11 @@ public class Cft {
             for (Future<String> task : tasks) {
                 newFilesToProcess.add(task.get());
             }
-            tempFiles.addAll(newFilesToProcess);
+            tempFiles.addAll(newFilesToProcess.subList(1, newFilesToProcess.size()));
 
-            if (filesToProcess.size() % 2 != 0) { //исключение нечетного файла из списка на удаление
+            /*if (filesToProcess.size() % 2 != 0) { //исключение нечетного файла из списка на удаление
                 tempFiles.remove(filesToProcess.get(filesToProcess.size() - 1));
-            }
+            }*/
 
             logger.info("РАЗМЕР НОВОГО ПУЛА ФАЙЛОВ ДЛЯ ОБРАБОТКИ: " + newFilesToProcess.size());
             filesToProcess = newFilesToProcess;
