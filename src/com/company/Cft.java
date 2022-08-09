@@ -16,11 +16,9 @@ import java.util.regex.Pattern;
 
 public class Cft {
 
-    static String regex = "\\d+";
-    static Pattern patternInt = Pattern.compile(regex);
-    static Pattern flagPattern = Pattern.compile("-(a|d|s|i)");
-    static Logger logger =Logger.getAnonymousLogger();
-    static ExecutorService pool = Executors.newCachedThreadPool();
+    private static final Pattern patternInt = Pattern.compile("\\d+");
+    private static final Logger logger = Logger.getAnonymousLogger();
+    private static final ExecutorService pool = Executors.newCachedThreadPool();
 
     public static void main(String[] args) throws ExecutionException, InterruptedException {
 
@@ -34,26 +32,25 @@ public class Cft {
         DataType dataType = null;
 
         for (String arg : args) {
-            if (flagPattern.matcher(arg).matches()) {
-                switch (arg) {
-                    case "-a" :
-                        break;
-                    case "-d" :
-                        isAscending = false;
-                        break;
-                    case "-i":
-                        dataType = DataType.INTEGER;
-                        break;
-                    case "-s":
-                        dataType = DataType.STRING;
-                        break;
-                }
-            } else {
-                if (outputFilename == null) {
-                    outputFilename = arg;
-                } else {
-                    filesToProcess.add(arg);
-                }
+            switch (arg) {
+                case "-a":
+                    break;
+                case "-d":
+                    isAscending = false;
+                    break;
+                case "-i":
+                    dataType = DataType.INTEGER;
+                    break;
+                case "-s":
+                    dataType = DataType.STRING;
+                    break;
+                default:
+                    if (outputFilename == null) {
+                        outputFilename = arg;
+                    } else {
+                        filesToProcess.add(arg);
+                    }
+                    break;
             }
         }
 
@@ -62,7 +59,7 @@ public class Cft {
             List<String> newFilesToProcess = new LinkedList<>();
             List<Future<String>> tasks = new ArrayList<>();
             for (int i = 0; i < filesToProcess.size(); i = i + 2) {
-                if (i < filesToProcess.size() - 1 ) {
+                if (i < filesToProcess.size() - 1) {
                     int finalI = i;
                     boolean finalIsAscending = isAscending;
                     DataType finalDataType = dataType;
@@ -78,10 +75,6 @@ public class Cft {
             }
             tempFiles.addAll(newFilesToProcess.subList(1, newFilesToProcess.size()));
 
-            /*if (filesToProcess.size() % 2 != 0) { //исключение нечетного файла из списка на удаление
-                tempFiles.remove(filesToProcess.get(filesToProcess.size() - 1));
-            }*/
-
             logger.info("РАЗМЕР НОВОГО ПУЛА ФАЙЛОВ ДЛЯ ОБРАБОТКИ: " + newFilesToProcess.size());
             filesToProcess = newFilesToProcess;
         }
@@ -93,42 +86,40 @@ public class Cft {
     private static String mergeFilesToTemp(String file1, String file2, boolean isAscending, DataType dataType) {
         String tempFileName = "temp_" + UUID.randomUUID() + ".txt";
         logger.info("МЁРЖИМ: " + file1 + " и " + file2 + " в " + tempFileName);
-        try(
+        try (
                 FileReader fileReader1 = new FileReader(file1);
                 FileReader fileReader2 = new FileReader(file2);
                 FileWriter writer = new FileWriter(tempFileName);
                 BufferedReader br1 = new BufferedReader(fileReader1);
                 BufferedReader br2 = new BufferedReader(fileReader2)
         ) {
-
-
-            String line1 = searchTypeLine(br1,dataType);
-            String line2 = searchTypeLine(br2,dataType);
+            String line1 = searchTypeLine(br1, dataType);
+            String line2 = searchTypeLine(br2, dataType);
 
             while (line1 != null || line2 != null) {
                 if (line1 == null) {
                     writer.write(line2 + "\n");
-                    line2 = searchTypeLine(br2,dataType);
+                    line2 = searchTypeLine(br2, dataType);
                 } else if (line2 == null) {
                     writer.write(line1 + "\n");
-                    line1 = searchTypeLine(br1,dataType);
+                    line1 = searchTypeLine(br1, dataType);
                 } else {
                     int compare = compareDueToType(line1, line2, dataType);
                     if (isAscending) {
                         if (compare <= 0) {
                             writer.write(line1 + "\n");
-                            line1 = searchTypeLine(br1,dataType);
+                            line1 = searchTypeLine(br1, dataType);
                         } else {
                             writer.write(line2 + "\n");
-                            line2 = searchTypeLine(br2,dataType);
-                                                    }
+                            line2 = searchTypeLine(br2, dataType);
+                        }
                     } else {
                         if (compare <= 0) {
                             writer.write(line2 + "\n");
-                            line2 = searchTypeLine(br2,dataType);
+                            line2 = searchTypeLine(br2, dataType);
                         } else {
                             writer.write(line1 + "\n");
-                            line1 = searchTypeLine(br1,dataType);
+                            line1 = searchTypeLine(br1, dataType);
                         }
                     }
                 }
@@ -141,23 +132,34 @@ public class Cft {
         return tempFileName;
     }
 
-    private static String searchTypeLine (BufferedReader br, DataType dataType) throws IOException {
-        String line = br.readLine();
-        while (line != null && dataType == DataType.INTEGER && !patternInt.matcher(line).matches()) {
-            line = br.readLine();
+    private static String searchTypeLine(BufferedReader br, DataType dataType) throws IOException {
+        while (true) {
+            String line = br.readLine();
+            if (line == null) return null;
+            if (isLineValid(line, dataType)) return line;
         }
-        while (line != null && dataType == DataType.STRING && (line.contains(" ")||line.contains("\t") || line.isEmpty())) {
-            line = br.readLine();
-        }
-        return line;
     }
 
-
+    private static boolean isLineValid(String line, DataType dataType) {
+        switch (dataType) {
+            case STRING -> {
+                return !(line.contains(" ") || line.contains("\t") || line.isEmpty());
+            }
+            case INTEGER -> {
+                return patternInt.matcher(line).matches();
+            }
+        }
+        return false;
+    }
     private static int compareDueToType(String line1, String line2, DataType dataType) {
-        if (dataType == DataType.STRING) {
-            return line1.compareTo(line2);
-        } else {
-            return Integer.compare(Integer.parseInt(line1), Integer.parseInt(line2));
+        try {
+            if (dataType == DataType.STRING) {
+                return line1.compareTo(line2);
+            } else {
+                return Integer.compare(Integer.parseInt(line1), Integer.parseInt(line2));
+            }
+        } catch (NumberFormatException e) {
+
         }
     }
 
@@ -169,17 +171,29 @@ public class Cft {
     }
 
     private static boolean checkArgs (String[] args) {
-         return checkNumArgs(args) && checkTypeSort(args) && checkFile(args);
+        return checkNumArgs(args) && checkTypeAndFile(args);
     }
 
-    private static boolean checkFile (String[] args) {
+    private static boolean checkTypeAndFile(String[] args) {
         int index = -1;
         boolean isCorr = true;
-        for (String arg : args) {//получение индекса после которого должны начаться названия файлов
+        if (args[0].matches("-([ad])")) {//проверка порядка аргументов и получение индекса после которого должны начаться названия файлов
             index++;
-            if (arg.equals("-s") || arg.equals("-i")) {
-                break;
+            if (args[1].matches("-([si])")) {
+                index++;
+            }else{
+                isCorr = false;
+                System.out.println("Отсутствует один из обязательных аргументов -s и -i");
+
             }
+        } else if (args[0].matches("-([si])")) {
+            index++;
+            if (args[1].matches("-([ad])")) {
+                index++;
+            }
+        } else {
+            isCorr = false;
+            System.out.println("Отсутствует один из обязательных аргументов -s и -i");
         }
 
         if (new File(args[index + 1]).isFile()) {//проверка на существование файла с именем исходящего
@@ -197,14 +211,6 @@ public class Cft {
         return isCorr;
     }
 
-    private static boolean checkTypeSort (String[] args) {//проверка что в первые идут
-        if (args[0].equals("-a") || args[0].equals("-d")) {
-            if (args[1].equals("-s") || args[1].equals("-i")) {
-                return true;
-            }
-        }
-        return args[0].equals("-s") || args[0].equals("-i");
-    }
     private static boolean checkNumArgs(String[] args) {
         if(!(args.length > 2)) {
             System.out.println("Количество аргументов меньше 3");
