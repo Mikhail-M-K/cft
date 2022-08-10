@@ -159,7 +159,8 @@ public class Cft {
                 return Integer.compare(Integer.parseInt(line1), Integer.parseInt(line2));
             }
         } catch (NumberFormatException e) {
-
+            System.out.println("Строка не может быть преобразована");
+            throw new NumberFormatException(e.getMessage());
         }
     }
 
