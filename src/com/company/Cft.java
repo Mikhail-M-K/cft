@@ -73,19 +73,23 @@ public class Cft {
             for (Future<String> task : tasks) {
                 newFilesToProcess.add(task.get());
             }
-            tempFiles.addAll(newFilesToProcess.subList(1, newFilesToProcess.size()));
-
+            if(tempFiles.size() != 0) {
+                newFilesToProcess.forEach(tempFiles::remove);
+                tempFiles.remove(args[args.length-1]);
+                deleteTempFiles(tempFiles);
+                tempFiles.clear();
+            }
+            tempFiles.addAll(newFilesToProcess);
             logger.info("РАЗМЕР НОВОГО ПУЛА ФАЙЛОВ ДЛЯ ОБРАБОТКИ: " + newFilesToProcess.size());
             filesToProcess = newFilesToProcess;
         }
         pool.shutdown();
         finishMerge(filesToProcess.get(0), outputFilename);
-        deleteTempFiles(tempFiles);
     }
 
     private static String mergeFilesToTemp(String file1, String file2, boolean isAscending, DataType dataType) {
         String tempFileName = "temp_" + UUID.randomUUID() + ".txt";
-        logger.info("МЁРЖИМ: " + file1 + " и " + file2 + " в " + tempFileName);
+        logger.info("Merge: " + file1 + " и " + file2 + " в " + tempFileName);
         try (
                 FileReader fileReader1 = new FileReader(file1);
                 FileReader fileReader2 = new FileReader(file2);
