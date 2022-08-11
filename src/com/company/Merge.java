@@ -14,13 +14,13 @@ import java.util.concurrent.Future;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
-public class Cft {
+public class Merge {
 
     private static final Pattern patternInt = Pattern.compile("\\d+");
     private static final Logger logger = Logger.getAnonymousLogger();
     private static final ExecutorService pool = Executors.newCachedThreadPool();
 
-    public static void main(String[] args) throws ExecutionException, InterruptedException {
+    public static void main(String[] args) throws ExecutionException, InterruptedException, IOException {
 
         while (!checkArgs(args)) {
             args = inputArgs();
@@ -55,6 +55,11 @@ public class Cft {
         }
 
         Set<String> tempFiles = new HashSet<>();
+        String tempFile = "temp_" + UUID.randomUUID() + ".txt";
+        if (filesToProcess.size() == 1) {
+            boolean file = new File(tempFile).createNewFile();
+            filesToProcess.add(tempFile);
+        }
         while (filesToProcess.size() > 1) {
             List<String> newFilesToProcess = new LinkedList<>();
             List<Future<String>> tasks = new ArrayList<>();
@@ -85,11 +90,12 @@ public class Cft {
         }
         pool.shutdown();
         finishMerge(filesToProcess.get(0), outputFilename);
+        boolean fileTemp = new File(tempFile).delete();
     }
 
     private static String mergeFilesToTemp(String file1, String file2, boolean isAscending, DataType dataType) {
         String tempFileName = "temp_" + UUID.randomUUID() + ".txt";
-        logger.info("Merge: " + file1 + " и " + file2 + " в " + tempFileName);
+        logger.info("Соединяем: " + file1 + " и " + file2 + " в " + tempFileName);
         try (
                 FileReader fileReader1 = new FileReader(file1);
                 FileReader fileReader2 = new FileReader(file2);
@@ -225,13 +231,14 @@ public class Cft {
 
     private static String[] inputArgs() {
         Scanner scanner = new Scanner(System.in);
-        System.out.println("Аргументы не валидны. Введите новые.\n" +
-                "Требования для аргументов (аргумменты вводить через пробел):\n" +
-                "1. режим сортировки (-a или -d), необязательный, по умолчанию сортируем по возрастанию;\n" +
-                "2. тип данных (-s или -i), обязательный;\n" +
-                "3. имя выходного файла, обязательное;\n" +
-                "4. остальные параметры – имена входных файлов, не менее одного.\n" +
-                "Пример: -d -s out.txt in1.txt in2.txt in3.txt");
+        System.out.println("""
+                Аргументы не валидны. Введите новые.
+                Требования для аргументов (аргумменты вводить через пробел):
+                1. режим сортировки (-a или -d), необязательный, по умолчанию сортируем по возрастанию;
+                2. тип данных (-s или -i), обязательный;
+                3. имя выходного файла, обязательное;
+                4. остальные параметры – имена входных файлов, не менее одного.
+                Пример: -d -s out.txt in1.txt in2.txt in3.txt""");
         return scanner.nextLine().split(" ");
     }
 
